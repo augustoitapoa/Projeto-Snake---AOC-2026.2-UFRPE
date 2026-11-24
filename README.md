@@ -14,7 +14,9 @@ https://view.genially.com/622931ea1b54ab00188cdf57
 
 ## Arquivos
 
-- `snake_versao_1.3.asm` — versão 1.3, idêntica à versão 1.1 abaixo (apenas o cabeçalho identifica a versão). É a versão recomendada para execução: a mais completa e alinhada com o enunciado.
+- `snake_versao_1.6.asm` — versão 1.6 deste branch: acrescenta a função `calcular_velocidade`, que reduz o intervalo entre movimentos de 500 ms para 100 ms (piso jogável), em passos de 40 ms a cada 3 comidas. A curva: 500 ms (0–2 comidas), 460 (3–5), 420 (6–8), ..., 140 (27–29), 100 (30+). O contador `comidas_comidas` é reiniciado a cada partida. Mantém a correção por tag da v1.5.
+- `snake_versao_1.5.asm` — versão 1.5 deste branch: a fruta passa a ser controlada por duas tags (`comida_addr` = posição ativa, `comida_desenhada` = posição pintada no frame anterior). A cada frame o renderer apaga a tag antiga e pinta a nova, garantindo no máximo uma fruta vermelha na tela (sempre 256 pixels vermelhos, mesmo após várias comidas).
+- `snake_versao_1.3.asm` — versão 1.3, idêntica à versão 1.1 abaixo (apenas o cabeçalho identifica a versão). É a base destas versões experimentais.
 - `snake_versao_1.asm` — código-fonte completo (MIPS, para o simulador MARS), versão 1.1 com todas as correções e recursos descritos neste README.
 - `snake_versao_1.2.asm` — versão alternativa 1.2, implementada a partir do código original antes das correções acima. Contém correções para a colisão com a cauda, limite do vetor, condição de vitória, controle por setas (sequências de escape do MMIO), pausa, velocidade progressiva e preservação de registradores temporários nas rotinas de desenho. Use as mesmas instruções de configuração do MARS descritas abaixo.
 
