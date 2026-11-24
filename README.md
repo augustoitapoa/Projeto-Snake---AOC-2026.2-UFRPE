@@ -12,9 +12,10 @@ https://view.genially.com/622931ea1b54ab00188cdf57
 
 ---
 
-## Arquivo
+## Arquivos
 
 - `snake_versao_1.asm` — código-fonte completo (MIPS, para o simulador MARS).
+- `snake_versao_1.2.asm` — versão alternativa 1.2, implementada a partir do código original antes das correções acima. Contém correções para a colisão com a cauda, limite do vetor, condição de vitória, controle por setas (sequências de escape do MMIO), pausa, velocidade progressiva e preservação de registradores temporários nas rotinas de desenho. Use as mesmas instruções de configuração do MARS descritas abaixo.
 
 ## Como executar no MARS
 
