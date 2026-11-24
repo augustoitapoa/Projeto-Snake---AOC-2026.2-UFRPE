@@ -14,7 +14,8 @@ https://view.genially.com/622931ea1b54ab00188cdf57
 
 ## Arquivos
 
-- `snake_versao_1.3.asm` — versão 1.3, idêntica à versão 1.1 abaixo (apenas o cabeçalho identifica a versão). É a versão recomendada para execução: a mais completa e alinhada com o enunciado.
+- `snake_versao_1.5.asm` — **versão recomendada para execução.** Baseada na v1.3, corrige o acúmulo de frutas na tela usando duas tags: `comida_addr` (posição ativa) e `comida_desenhada` (posição pintada no frame anterior). A cada frame o renderer apaga a tag antiga e pinta a nova, garantindo no máximo uma fruta vermelha (sempre 256 pixels vermelhos, mesmo após várias comidas). Mantém 500 ms por movimento, conforme o enunciado. Custo: apenas 4 bytes de dados e ~10 instruções a mais que a v1.3.
+- `snake_versao_1.3.asm` — versão 1.3, idêntica à versão 1.1 abaixo (apenas o cabeçalho identifica a versão). Base das versões experimentais; não corrige o acúmulo de frutas.
 - `snake_versao_1.asm` — código-fonte completo (MIPS, para o simulador MARS), versão 1.1 com todas as correções e recursos descritos neste README.
 - `snake_versao_1.2.asm` — versão alternativa 1.2, implementada a partir do código original antes das correções acima. Contém correções para a colisão com a cauda, limite do vetor, condição de vitória, controle por setas (sequências de escape do MMIO), pausa, velocidade progressiva e preservação de registradores temporários nas rotinas de desenho. Use as mesmas instruções de configuração do MARS descritas abaixo.
 
