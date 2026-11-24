@@ -14,7 +14,8 @@ https://view.genially.com/622931ea1b54ab00188cdf57
 
 ## Arquivos
 
-- `snake_versao_1.3.asm` — versão 1.3, idêntica à versão 1.1 abaixo (apenas o cabeçalho identifica a versão). É a versão recomendada para execução: a mais completa e alinhada com o enunciado.
+- `snake_versao_1.4.asm` — versão 1.4, baseada na v1.3 com duas correções: (1) a fruta antiga agora é apagada do display quando a cobra a come (antes, as frutas se acumulavam na tela); (2) a pontuação agora é desenhada permanentemente no canto inferior direito do Bitmap Display, além de continuar aparecendo no console. **É a versão recomendada para execução.**
+- `snake_versao_1.3.asm` — versão 1.3, idêntica à versão 1.1 abaixo (apenas o cabeçalho identifica a versão).
 - `snake_versao_1.asm` — código-fonte completo (MIPS, para o simulador MARS), versão 1.1 com todas as correções e recursos descritos neste README.
 - `snake_versao_1.2.asm` — versão alternativa 1.2, implementada a partir do código original antes das correções acima. Contém correções para a colisão com a cauda, limite do vetor, condição de vitória, controle por setas (sequências de escape do MMIO), pausa, velocidade progressiva e preservação de registradores temporários nas rotinas de desenho. Use as mesmas instruções de configuração do MARS descritas abaixo.
 
