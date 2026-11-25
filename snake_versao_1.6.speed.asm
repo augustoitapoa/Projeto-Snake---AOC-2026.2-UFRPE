@@ -1,6 +1,6 @@
 # UNIVERSIDADE FEDERAL RURAL DE PERNAMBUCO
 # ARQUITETURA E ORGANIZACÃO DE COMPUTADORES (AOC) - 2026.2
-#PROJETO SNAKE  - ASSEMBLY MIPS  -  VERSAO 1.6
+#PROJETO SNAKE  - ASSEMBLY MIPS  -  VERSAO 1.6.speed
 #Professora: MILLENA DE ANDRADE ALMEIDA GOMES CAVALCANTI
 #Alunos: Augusto Itapoã
 #				Renato Neves
@@ -49,6 +49,21 @@
 #             pilha e o devolve antes de retornar.
 #   $sp     : topo da pilha | $ra : endereço de retorno
 #
+# MUDANÇAS DA VERSÃO 1.6 (anti-travamento do MARS 4.5):
+# O MARS 4.5 tem um deadlock interno: o syscall de espera (sleep, 32) e o syscall
+# de som síncrono (33) rodam com o "lock" do simulador seguro. Se uma tecla for
+# apertada durante essa espera, a thread da janela fica presa esperando o lock
+# (segurando o lock do teclado), e quando o programa volta a ler o teclado (MMIO)
+# as duas threads ficam esperando uma pela outra e o MARS congela sem erro.
+#   - Todas as esperas agora usam esperar_ms (laço com o relógio, syscall 30),
+#     que solta o lock a cada instrução. Nenhum sleep (32) nem syscall 33 restou.
+#   - Os sons de derrota/vitória usam o syscall 31 (assíncrono) + esperar_ms.
+#   - O teclado é lido só uma vez por passo do jogo (e a cada 50 ms nas telas de
+#     espera), para reduzir ao mínimo os acessos ao MMIO.
+#   - [BUG] comida_desenhada agora é zerada em inicializar_jogo; antes, depois de
+#     apertar R, a comida podia não ser desenhada se caísse no mesmo lugar.
+#   Obs.: o laço de espera usa 100% de um núcleo da CPU enquanto aguarda.
+#
 # OBSERVAÇÃO SOBRE MEMÓRIA:
 # O Bitmap Display usa 1 MB a partir de 0x10010000. Para não sobrescrever as
 # variáveis do jogo, a seção .data é montada em 0x10000000 (abaixo do display).
@@ -66,11 +81,11 @@ LARGURA_DISP:   .word 512
 ALTURA_DISP:    .word 512
 MAX_CELULAS:    .word 1024          # 32 x 32 = tabuleiro inteiro
 
-# --- Curva de velocidade (v1.6) ---
-DELAY_INICIAL:  .word 500           # ms por celula no inicio (exigido pelo enunciado)
-DELAY_MINIMO:   .word 100           # ms por celula no maximo (piso jogavel)
-PASSO_DELAY:    .word 40            # ms reduzidos a cada N comidas
-COMIDAS_POR_PASSO:.word 3           # N: quantas comidas por reducao
+# --- Curva de velocidade (herdada da antiga v1.6) ---
+DELAY_INICIAL:  .word 500
+DELAY_MINIMO:   .word 100
+PASSO_DELAY:    .word 40
+COMIDAS_POR_PASSO:.word 3
 
 # --- Cores (Formato 0x00RRGGBB) ---
 COR_FUNDO:      .word 0x00000000    # Preto (casa par do tabuleiro)
@@ -87,7 +102,7 @@ snake_direcao:  .word 0             # 0: Cima, 1: Direita, 2: Baixo, 3: Esquerda
 comida_addr:    .word 0             # TAG: endereco da fruta ATIVA (logica do jogo)
 comida_desenhada:.word 0xFFFFFFFF   # TAG: endereco PINTADO no ultimo frame (0xFFFFFFFF = nenhum)
 pontuacao:      .word 0
-comidas_comidas:.word 0             # contador de comidas (para a curva de velocidade)
+comidas_comidas:.word 0             # contador de comidas (curva de velocidade)
 game_over:      .word 0
 vitoria:        .word 0             # 1 se a cobra encheu o tabuleiro
 recorde:        .word 0             # maior pontuação da sessão (não é zerado ao reiniciar)
@@ -118,11 +133,10 @@ main:
     jal tela_inicial        # espera o jogador apertar uma tecla para começar
 
 loop_principal:
-    # 1. Calcular e aplicar o intervalo desta rodada (curva de velocidade)
+    # 1. Calcular e aplicar o intervalo (curva de velocidade + esperar_ms)
     jal calcular_velocidade
     move $a0, $v0
-    li $v0, 32          # syscall sleep (ms)
-    syscall
+    jal esperar_ms
 
     # 2. Ler teclado (Input) - também trata a pausa
     jal ler_teclado
@@ -140,35 +154,24 @@ loop_principal:
     j loop_principal
 
 # =============================================================================
-# [NOVO v1.6] FUNÇÃO: calcular_velocidade
-# Retorna em $v0 o intervalo (ms) entre movimentos, segundo a curva:
-#
-#     delay = max(DELAY_MINIMO, DELAY_INICIAL - (comidas / N) * PASSO_DELAY)
-#
-# Começa em 500 ms (exigido pelo enunciado) e cai 40 ms a cada 3 comidas,
-# até o piso de 100 ms. Atinge o piso apos 10 reducoes = 30 comidas.
-# Nao usa divisao de ponto flutuante: apenas div inteira, mul e sub.
-# Nao altera nenhum registrador $s (usa apenas $t0-$t3).
+# [HERDADO DA v1.6] FUNÇÃO: calcular_velocidade
+# delay = max(100, 500 - (comidas / 3) * 40). Usa esperar_ms da v1.6.1.
 # =============================================================================
 calcular_velocidade:
-    lw $t0, DELAY_INICIAL       # t0 = 500
-    lw $t1, DELAY_MINIMO        # t1 = 100
-    lw $t2, PASSO_DELAY         # t2 = 40
-    lw $t3, COMIDAS_POR_PASSO   # t3 = N (3)
-
+    lw $t0, DELAY_INICIAL
+    lw $t1, DELAY_MINIMO
+    lw $t2, PASSO_DELAY
+    lw $t3, COMIDAS_POR_PASSO
     lw $t4, comidas_comidas
     div $t4, $t3
-    mflo $t4                    # t4 = comidas / N  (quantos passos)
-
+    mflo $t4
     mult $t4, $t2
-    mflo $t4                    # t4 = reducao total em ms
-
-    sub $v0, $t0, $t4           # delay = 500 - reducao
+    mflo $t4
+    sub $v0, $t0, $t4
     blt $v0, $t1, velocidade_no_piso
     jr $ra
-
 velocidade_no_piso:
-    move $v0, $t1               # limita ao minimo de 100 ms
+    move $v0, $t1
     jr $ra
 
 # =============================================================================
@@ -206,14 +209,20 @@ inicializar_jogo:
     sw $t0, pontuacao
     sw $t0, game_over
     sw $t0, vitoria
-    sw $t0, comidas_comidas      # [v1.6] reinicia a curva de velocidade
+    sw $t0, comidas_comidas      # reinicia a curva de velocidade
+
+    # O tabuleiro acabou de ser limpo, entao nenhuma fruta esta pintada:
+    # volta a tag pintada para o sentinela 0xFFFFFFFF. [BUG corrigido na 1.6]
+    # Sem isso, depois de apertar R a fruta nova podia cair no mesmo lugar da
+    # fruta do jogo anterior e nunca ser desenhada.
+    li $t0, -1
+    sw $t0, comida_desenhada
 
     # Gerar primeira comida
     jal gerar_comida
 
-    # Observacao: comida_desenhada comeca em 0 (valor invalido), entao o
-    # primeiro desenhar_frame apaga a celula (0,0) e pinta a fruta na tag
-    # nova. A cobra eh desenhada logo depois em (0,0), cobrindo o fundo.
+    # Observacao: com a tag pintada = sentinela, o primeiro desenhar_frame nao
+    # apaga nada e so pinta a fruta nova.
 
     # Desenhar o primeiro frame imediatamente (antes do primeiro movimento)
     jal desenhar_frame
@@ -242,22 +251,26 @@ tela_inicial:
     jr $ra
 
 # =============================================================================
-# FUNÇÃO: esperar_tecla  [NOVO]
+# FUNÇÃO: esperar_tecla  [NOVO / REESCRITA NA 1.6]
 # Fica esperando até uma tecla ser apertada. Retorna o caractere em $v0.
-# Entre uma checagem e outra dorme 20 ms para não travar o MARS.
+# Entre uma checagem e outra espera 50 ms com esperar_ms (e NÃO com o syscall
+# sleep, que causa deadlock no MARS 4.5 se uma tecla chegar durante a espera).
 # =============================================================================
 esperar_tecla:
-    lw $t0, TECLADO_MMIO
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
 esperar_tecla_loop:
+    lw $t0, TECLADO_MMIO
     lw $t1, 0($t0)       # registrador de controle do teclado
     andi $t1, $t1, 1     # bit 0 = "tem tecla pronta"
     bne $t1, $zero, esperar_tecla_leu
-    li $a0, 20
-    li $v0, 32           # syscall sleep (20 ms)
-    syscall
+    li $a0, 50
+    jal esperar_ms       # (altera $t0, por isso $t0 é recarregado no topo)
     j esperar_tecla_loop
 esperar_tecla_leu:
     lw $v0, 4($t0)       # lê o caractere (isso também desliga o bit "pronto")
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
     jr $ra
 
 # =============================================================================
@@ -532,7 +545,7 @@ comeu_comida:
     addi $s7, $s7, 5
     sw $s7, pontuacao
 
-    # [v1.6] Contar esta comida para a curva de velocidade
+    # Conta esta comida para a curva de velocidade
     lw $t0, comidas_comidas
     addi $t0, $t0, 1
     sw $t0, comidas_comidas
@@ -844,6 +857,45 @@ calcular_endereco_celula:
     jr $ra
 
 # =============================================================================
+# FUNÇÃO: esperar_ms  [NOVO NA 1.6]
+# Espera $a0 milissegundos SEM usar o syscall sleep (32).
+# O sleep do MARS dorme com o lock do simulador seguro; se o jogador apertar uma
+# tecla nesse tempo, o MARS 4.5 entra em deadlock. Aqui o relógio (syscall 30,
+# milissegundos em $a0) é consultado em laço, e o lock é solto a cada instrução.
+# Altera: $v0, $a0, $a1, $t0, $t8, $t9.
+# =============================================================================
+esperar_ms:
+    move $t8, $a0        # duração desejada
+    li $v0, 30
+    syscall              # $a0 = tempo atual (32 bits baixos, em ms)
+    move $t9, $a0        # instante inicial
+esperar_ms_loop:
+    li $v0, 30
+    syscall
+    subu $t0, $a0, $t9   # decorrido (subu funciona mesmo se o contador der a volta)
+    bltu $t0, $t8, esperar_ms_loop
+    jr $ra
+
+# =============================================================================
+# FUNÇÃO: tocar_nota  [NOVO NA 1.6]
+# Toca uma nota e espera ela terminar, no lugar do syscall 33 (síncrono), que
+# também segura o lock do simulador durante a nota.
+# Argumentos (iguais aos do syscall 31): $a0 = nota, $a1 = duração em ms,
+# $a2 = instrumento, $a3 = volume.
+# =============================================================================
+tocar_nota:
+    addi $sp, $sp, -8
+    sw $ra, 4($sp)
+    sw $a1, 0($sp)       # guarda a duração (esperar_ms/syscall alteram $a1)
+    li $v0, 31           # syscall 31: toca a nota e volta na hora (assíncrono)
+    syscall
+    lw $a0, 0($sp)
+    jal esperar_ms       # espera a duração da nota
+    lw $ra, 4($sp)
+    addi $sp, $sp, 8
+    jr $ra
+
+# =============================================================================
 # FUNÇÃO: fim_de_jogo  [AMPLIADA]
 # Toca um som, exibe o resultado (derrota ou vitória), a pontuação e o
 # recorde, e pergunta se o jogador quer jogar de novo (tecla R).
@@ -852,20 +904,22 @@ fim_de_jogo:
     lw $t0, vitoria
     bne $t0, $zero, fim_vitoria
 
-    # --- Derrota: três notas descendo (syscall 33 espera a nota terminar) ---
+    # --- Derrota: três notas descendo (tocar_nota espera cada nota terminar) ---
     li $a0, 67
     li $a1, 180
     li $a2, 0            # instrumento 0 = piano
     li $a3, 100
-    li $v0, 33
-    syscall
+    jal tocar_nota
     li $a0, 62
-    li $v0, 33
-    syscall
+    li $a1, 180
+    li $a2, 0
+    li $a3, 100
+    jal tocar_nota
     li $a0, 55
     li $a1, 400
-    li $v0, 33
-    syscall
+    li $a2, 0
+    li $a3, 100
+    jal tocar_nota
 
     la $a0, MSG_GAME_OVER
     j mostrar_resultado
@@ -877,15 +931,17 @@ fim_vitoria:
     li $a1, 150
     li $a2, 0
     li $a3, 100
-    li $v0, 33
-    syscall
+    jal tocar_nota
     li $a0, 64
-    li $v0, 33
-    syscall
+    li $a1, 150
+    li $a2, 0
+    li $a3, 100
+    jal tocar_nota
     li $a0, 67
     li $a1, 400
-    li $v0, 33
-    syscall
+    li $a2, 0
+    li $a3, 100
+    jal tocar_nota
 
     la $a0, MSG_VITORIA
 
