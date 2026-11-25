@@ -20,6 +20,15 @@ https://view.genially.com/622931ea1b54ab00188cdf57
 - `snake_versao_1.asm` — código-fonte completo (MIPS, para o simulador MARS), versão 1.1 com todas as correções e recursos descritos neste README.
 - `snake_versao_1.2.asm` — versão alternativa 1.2, implementada a partir do código original antes das correções acima. Contém correções para a colisão com a cauda, limite do vetor, condição de vitória, controle por setas (sequências de escape do MMIO), pausa, velocidade progressiva e preservação de registradores temporários nas rotinas de desenho. Use as mesmas instruções de configuração do MARS descritas abaixo.
 
+### Branches experimentais
+
+Além do `main`, existem dois branches com variações que já incorporam todas as correções da v1.6.1 (anti-deadlock e tag da fruta no restart):
+
+- Branch **`1.6.speed`**: arquivo `snake_versao_1.6.speed.asm`. Adiciona a curva de velocidade: `delay = max(100, 500 - (comidas/3)*40)`, combinada com `esperar_ms` (sem `syscall 32`). Começa em 500 ms (exigido pelo enunciado) e chega a 100 ms após 30 comidas.
+- Branch **`1.4.score`**: arquivo `snake_versao_1.4.score.asm`. Adiciona o placar permanente desenhado no próprio Bitmap Display (fonte 5x7, canto inferior direito), além do console.
+
+Para usar um deles: `git checkout 1.6.speed` ou `git checkout 1.4.score`.
+
 ## Como executar no MARS
 
 1. **Tools → Bitmap Display** (exibição de bitmap):
